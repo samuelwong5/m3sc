@@ -128,19 +128,20 @@ test(double *exp, double *got, int N)
 {
     const double EPSILON = 1.e-5;
     int j = 1;
-    for (int i = 1; i <= N; i++) 
-        if (fabs(exp[i] - got[i]) > EPSILON)
+    int inc = 0;
+    for (int i = 1; i <= N; i++) {
+        if (fabs(exp[i] - got[i]) > EPSILON) {
+            inc++;
+            if (j == 1) { printf("Mismatch!\nIndex    Expected    Got         Difference\n"); }
             j = 0;
+            printf("%7d  %10g  %10g  %10g\n", i, exp[i], got[i], fabs(exp[i] - got[i]));
+        }
+    }
     if (j) {
         printf("Match!\n");
-        return;
+    } else {
+        printf("        %d/%d incorrect (%5f%%)\n", inc, N, 100.f * inc / N);
     }
-    printf("Mismatch!\n");
-    printf("Expected: ");
-    dbl_arr_print(exp, N);
-    printf("Got:      ");
-    dbl_arr_print(got, N);
-    return;
 }
 
 
@@ -426,7 +427,7 @@ void debug(int N, int func)
 
 int main()
 {
-    int it = 10;
+    int it = 20;
     int M = 2;
     int N = 3;
     while (it --> 0) {
