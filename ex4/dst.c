@@ -13,14 +13,26 @@ int FastUN(double *, double *, double *, double *, int, int);
 void dbl_arr_print(double *, int);
 
 
+void dbl_arr_print2(double *arr, int N, int skip);
 static double *sf; /* Pre-calculated sine values */
 
-
+/*  ---------------------------------------------
+ *  sf_index:
+ *  ---------------------------------------------
+ *  Finds the corresponding sine value of 
+ *  sin(i*PI/j) from the precomputed arrays.
+ *
+ *  Parameters:
+ *    int i     - numerator of fraction 
+ *    int j     - denominator of fraction
+ *    double *S - array of sine values
+ *
+ *  Returns:
+ *    double    - the value of sin(i*PI/j)
+ */
 double 
 sf_index(int i, int j, double *S) 
 {
-    //printf("    - Called sf_index(%d, %d)\n", i, j);
-    
     i = i % (2 * j);
     int k = 1;
     if (i > j) {
@@ -42,11 +54,16 @@ sf_index(int i, int j, double *S)
     } else {
         res = S[(j * 3) / 4 + (i * 3) / 2 + 1] * k;    
     }
-    //printf("[%dpi/%d] %g \n", i, j, res);
     return res;
 }
 
-
+/*  ---------------------------------------------
+ *  sf_init:
+ *  ---------------------------------------------
+ *  Initializes the basic precomputed sine array 
+ *  and calculates the first two values:
+ *    sin(pi/2), sin(pi/3)
+ */
 void 
 sf_init(void)
 {
@@ -56,14 +73,31 @@ sf_init(void)
     sf[2] = sin(M_PI / 3);
 }
 
-
+/*  ---------------------------------------------
+ *  sf_release:
+ *  ---------------------------------------------
+ *  Frees the precomputed sine array.
+ */
 void 
 sf_release(void)
 {
     free(sf);
 }
 
-
+/*  ---------------------------------------------
+ *  SFactors:
+ *  ---------------------------------------------
+ *  Returns an array of precomputed sine values. 
+ *  The sine values are computed lazily - i.e. 
+ *  the computation happens when it is explicitly 
+ *  required. 
+ *
+ *  Parameters:
+ *    int n    - the denominator needed
+ *
+ *  Returns:
+ *    double * - the array of sine values
+ */
 double * 
 SFactors(int n)
 {
@@ -81,6 +115,13 @@ SFactors(int n)
         int index = MAX_N == 3 ? 2 : MAX_N / 2;
         
         int NEW_MAX_N = MAX_N;
+        
+        /* If the requested denominator is 
+           not 3 * 2^k for some k, the values 
+           will be calculated with the 
+           denominator 3*n. */
+        if (n % 3 != 0) { n *= 3; }
+        
         /* Lazy evaluation for sine values */
         while (NEW_MAX_N < n) { NEW_MAX_N *= 2; } 
         
@@ -107,19 +148,6 @@ SFactors(int n)
     double *v = malloc(sizeof(*v) * (MAX_N / 2 + 1));
     memcpy(v, sf, sizeof(*v) * (MAX_N / 2 + 1));
     return v;
-}
-
-
-void 
-debug_sin(int index)
-{
-    int k = 2;
-    int d = 1;
-    while (index > d) {
-        d *= 2;
-        k *= 2;
-    }
-    printf("sin(%d*pi/%d)", -1 + 2 * index - d, k);
 }
 
 
@@ -163,6 +191,7 @@ FastSN(double *x, double *y, double *w, double *S, int N, int skip)
 {
     //printf("  - Called S(%d)\n", N);
     /* i,j th element of S(N) = sin(i*j*pi/N) */
+         
     if (N == 1) {
     
     } else if (N == 2) {
@@ -176,28 +205,28 @@ FastSN(double *x, double *y, double *w, double *S, int N, int skip)
         for (int j = 1; j < N; j++)
             w[j * skip] = y[j * skip];
         for (int j = 1; j < N / 2; j++)
-            y[j * skip] = w[j * skip] - w[(N-j) * skip];
-        for (int j = 1; j <= N / 2; j++)
-            y[(N / 2 + j - 1) * skip] = w[j * skip] + w[(N-j) * skip];
+            y[2 * j * skip] = w[j * skip] - w[(N-j) * skip];
+        for (int j = 1; j < N / 2; j++)
+            y[(2 * j - 1) * skip] = w[j * skip] + w[(N-j) * skip];
         y[(N - 1) * skip] = w[N / 2 * skip];
         
         /* Recursive step */
-        int a = FastSN(x, y, w, S, N / 2, skip);
-        int b = FastTN(x + N / 2 - 1, y + N / 2 - 1, w + N / 2 - 1, S, N / 2, skip);
-        
+        int a = FastSN(x, y, w, S, N / 2, 2 * skip);
+        int b = FastTN(x - skip, y - skip, w - skip, S, N / 2, 2 * skip);
+
         /* Return -1 if one of the recursive calls failed. */
         if (a || b != 0) { return -1; }
         
-        for (int j = 1; j < N; j++)
-            y[j * skip] = x[j * skip];
+        // for (int j = 1; j < N; j++)
+        //    y[j * skip] = x[j * skip];
 
         /* Permutation matrix:
            For odd i, x[i] = y[N/2 + (i - 1)/2]
            For even j, x[j] = y[j/2]      */
-        for (int j = 1; j <= N; j += 2)
+        /*for (int j = 1; j <= N; j += 2)
             x[j * skip] = y[((j - 1)/ 2 + N / 2) * skip];
         for (int j = 2; j <= N; j += 2)
-            x[j * skip] = y[j / 2 * skip];
+            x[j * skip] = y[j / 2 * skip];*/
     } else {
         return -1;
     }
@@ -248,7 +277,7 @@ FastTN(double *x, double *y, double *w, double *S, int N, int skip)
 
         /* Recursive step */
         int a = FastTN(x, y, w, S, N / 2, skip);
-        int b = FastUN(x + N / 2, y + N / 2, w + N / 2, S, N / 2, skip);
+        int b = FastUN(x + skip * N / 2, y + skip * N / 2, w + skip * N / 2, S, N / 2, skip);
         
         /* Return -1 if one of the recursive calls failed. */
         if (a || b != 0) { return -1; }
@@ -326,14 +355,14 @@ FastUN(double *x, double *y, double *w, double *S, int N, int skip)
             w[j * skip] = y[j * skip];
         for (int j = 1; j < N / 2; j++)
             y[j * skip] = - w[(N / 2 - j) * 2 * skip] + w[((N / 2 - j) * 2 + 1) * skip];
-        y[N / 2] = w[skip];
+        y[N / 2 * skip] = w[skip];
         for (int j = 1; j < N / 2; j++)
             y[(j + N / 2) * skip] = w[j * 2 * skip] + w[(j * 2 + 1) * skip];
-        y[N] = w[N * skip];
+        y[N * skip] = w[N * skip];
         
         /* Recursive step */
         int a = FastTN(x, y, w, S, N / 2, skip);
-        int b = FastTN(x + N / 2, y + N / 2, w + N / 2, S, N / 2, skip);
+        int b = FastTN(x + skip * N / 2, y + skip * N / 2, w + skip * N / 2, S, N / 2, skip);
        
         //TN(x, y, N / 2);
         //TN(x + N / 2, y + N / 2, N / 2);
@@ -364,6 +393,12 @@ FastUN(double *x, double *y, double *w, double *S, int N, int skip)
     return 0;
 }
 
+void dbl_arr_print2(double *arr, int N, int skip)
+{
+    for (int i = 1; i <= N; i++)
+        printf("%g ", arr[i * skip]);
+    printf("\n");
+}
 
 void dbl_arr_print(double *arr, int N)
 {
@@ -373,7 +408,8 @@ void dbl_arr_print(double *arr, int N)
 }
 
 
-void debug(int N, int func)
+void 
+debug(int N, int func)
 {
     // Init
     double *x = malloc(sizeof(*x)*(N+1));
@@ -390,14 +426,15 @@ void debug(int N, int func)
         y2[i] = (double) i;
     }
     
+    /* S flag is set to indicate an 
+       offset for the matrix size. */
     int S = 0;
+    
     if (func == 1) {
         S = 1;
         printf("Testing S(%d): ", N);
         FastSN(x, y, w, s, N, 1);
-        //printf("FastSN Complete\n");
         SN(x2, y2, N); 
-        //printf("SN Complete\n");
     } else if (func == 2) {    
         printf("Testing T(%d): ", N);
         FastTN(x, y, w, s, N, 1);
@@ -410,10 +447,7 @@ void debug(int N, int func)
        printf("Unknown function id: %d!\n", func);
        exit(-1);
     }
-    //printf("Comparing: ");
     test(x2, x, N - S);
-    //dbl_arr_print(x2, N - S);
-    //dbl_arr_print(x, N - S);
     
     // Cleanup
     free(x);
