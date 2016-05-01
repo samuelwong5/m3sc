@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define _STATIC_SF
+//#define _STATIC_SF
 
 #ifdef _STATIC_SF
 void sf_init(int);

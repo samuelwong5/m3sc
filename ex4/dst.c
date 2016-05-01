@@ -247,6 +247,7 @@ SFactors(int n)
 int 
 FastSN(double *x, double *y, double *w, double *S, int N, int skip)
 {
+    //printf("  - S(%d) called.\n", N);
     if (N == 1) {
         /* Nothing to do here. */
     } else if (N == 2) {
@@ -273,16 +274,15 @@ FastSN(double *x, double *y, double *w, double *S, int N, int skip)
         for (int j = 1; j < N / 2; j++)
             y[(2 * j - 1) * skip] = w[j * skip] + w[(N-j) * skip];
         y[(N - 1) * skip] = w[N / 2 * skip];
-        
         /* Recursive step */
         int a = FastSN(x, y, w, S, N / 2, 2 * skip);
         int b = FastTN(x - skip, y - skip, w - skip, S, N / 2, 2 * skip);
-
         /* Return -1 if one of the recursive calls failed. */
         if (a || b != 0) { return -1; }
     } else {
         return -1;
     }
+    //printf("  - S(%d) exited.\n", N);
     return 0;
 }
 
@@ -315,6 +315,7 @@ FastSN(double *x, double *y, double *w, double *S, int N, int skip)
 int 
 FastTN(double *x, double *y, double *w, double *S, int N, int skip)
 {
+    //printf("  - T(%d) called.\n", N);
     if (N == 1) {
         /* T(1) = [[ 0 ]] */
         x[skip] = 0;  
@@ -373,6 +374,7 @@ FastTN(double *x, double *y, double *w, double *S, int N, int skip)
     } else {
         return -1;
     }
+    //printf("  - T(%d) exited.\n", N);
     return 0;
 }
 
